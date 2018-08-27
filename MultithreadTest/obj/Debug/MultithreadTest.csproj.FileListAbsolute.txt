@@ -1,0 +1,7 @@
+C:\Users\Simon\source\repos\MultithreadTest\MultithreadTest\bin\Debug\MultithreadTest.exe.config
+C:\Users\Simon\source\repos\MultithreadTest\MultithreadTest\bin\Debug\MultithreadTest.exe
+C:\Users\Simon\source\repos\MultithreadTest\MultithreadTest\bin\Debug\MultithreadTest.pdb
+C:\Users\Simon\source\repos\MultithreadTest\MultithreadTest\obj\Debug\MultithreadTest.csprojResolveAssemblyReference.cache
+C:\Users\Simon\source\repos\MultithreadTest\MultithreadTest\obj\Debug\MultithreadTest.csproj.CoreCompileInputs.cache
+C:\Users\Simon\source\repos\MultithreadTest\MultithreadTest\obj\Debug\MultithreadTest.exe
+C:\Users\Simon\source\repos\MultithreadTest\MultithreadTest\obj\Debug\MultithreadTest.pdb
