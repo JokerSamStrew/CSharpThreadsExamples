@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading;
+using System.Runtime.CompilerServices;
 
 /*
  * Данный проект демонстрирует работу с потоками на языке C#
@@ -208,42 +209,80 @@ class MyThreadLock
 class TickTock
 {
     object lockOn = new object();
-    public void Tick(bool running){
-        lock (lockOn){
-            if (!running){
-                Console.Write("Tick ");
-                // Уведомить любые ожидающие потоки
-                Monitor.Pulse(lockOn); 
-                return;
-            }
+    //public void Tick(bool running){
+    //    lock (lockOn){
+    //        if (running){
+                
+    //            // Уведомить любые ожидающие потоки
+    //            Monitor.Pulse(lockOn); 
+    //            return;
+    //        }
 
-            
-            // разрешить выполнение метода Tock()
-            Monitor.Pulse(lockOn);
-            // ожидать завершение выполнения метода Tock()
-            Monitor.Wait(lockOn); 
+    //        Console.Write("Tick ");
+    //        // разрешить выполнение метода Tick()
+    //        Monitor.Pulse(lockOn);
+    //        // ожидать завершение выполнения метода Tick()
+    //        Monitor.Wait(lockOn); 
+    //    }
+    //}
+
+    //public void Tock(bool running)
+    //{
+    //    lock (lockOn)
+    //    {
+    //        if (running)
+    //        {
+    //            // Уведомить любые ожидающие потоки
+                
+    //            Monitor.Pulse(lockOn);
+    //            return;
+    //        }
+
+    //        Console.Write("Tock \n");
+    //        // разрешить выполнение метода Tock()
+    //        Monitor.Pulse(lockOn);
+    //        // ожидать завершение выполнения метода Tock()
+    //        Monitor.Wait(lockOn);
+    //    }
+    //}
+
+    [MethodImplAttribute(MethodImplOptions.Synchronized)]
+    public void Tick(bool running)
+    { 
+        if (!running)
+        {
+
+            // Уведомить любые ожидающие потоки
+            Monitor.Pulse(this);
+            return;
         }
+
+        Console.Write("Tick ");
+        // разрешить выполнение метода Tick()
+        Monitor.Pulse(this);
+        // ожидать завершение выполнения метода Tick()
+        Monitor.Wait(this);
+        
     }
 
+    [MethodImplAttribute(MethodImplOptions.Synchronized)]
     public void Tock(bool running)
     {
-        lock (lockOn)
+        if (!running)
         {
-            if (!running)
-            {
-                Console.Write("Tock ");
-                // Уведомить любые ожидающие потоки
-                Monitor.Pulse(lockOn);
-                return;
-            }
+            // Уведомить любые ожидающие потоки
 
-            
-            // разрешить выполнение метода Tock()
-            Monitor.Pulse(lockOn);
-            // ожидать завершение выполнения метода Tock()
-            Monitor.Wait(lockOn);
+            Monitor.Pulse(this);
+            return;
         }
+
+        Console.Write("Tock \n");
+        // разрешить выполнение метода Tock()
+        Monitor.Pulse(this);
+        // ожидать завершение выполнения метода Tock()
+        Monitor.Wait(this);
     }
+
 }
 
 class TickTackThread
@@ -264,12 +303,14 @@ class TickTackThread
     {
         if(this.Thread.Name == "Tick"){
             for(int i = 0; i < 5; i++){
-                this.tt.Tick(false);
+                this.tt.Tick(true);
             }
+            this.tt.Tick(false);
         } else {
             for (int i = 0; i < 5; i++){
-                this.tt.Tock(false);
+                this.tt.Tock(true);
             }
+            this.tt.Tock(false);
         }
     }
 
@@ -277,11 +318,199 @@ class TickTackThread
 
 }
 
+// В этом классе содержится общий ресурс (Count)
+// а также мьютекс (Mtx), управляющей доступом к ней
+class SharedRes
+{
+    public static int Count = 0;
+    public static Mutex Mtx = new Mutex();
+}
+
+// В этом потоке переменная SharedRes.Count инкрементируется
+class IncThread
+{
+    int num;
+    public Thread Thrd;
+
+    public IncThread(string name, int n)
+    {
+        this.Thrd = new Thread(this.Run);
+        this.Thrd.Name = name;
+        this.num = n;
+        this.Thrd.Start();
+    }
+
+    public void Run()
+    {
+        Console.WriteLine(this.Thrd.Name + " Wait Mutex...");
+
+        // Получить Мьютекс
+        //SharedRes.Mtx.WaitOne();
+
+        Console.WriteLine(this.Thrd.Name + " Get Mutex");
+
+        do {
+            Thread.Sleep(500);
+            SharedRes.Count++;
+            Console.WriteLine(
+                "In Thread " + this.Thrd.Name
+                + ", SharedRes.Count = " + SharedRes.Count
+                );
+            num--;
+
+        } while(num > 0);
+
+        Console.WriteLine(this.Thrd.Name + " Free Mutex");
+
+        // Освободить Мьютекс
+        //SharedRes.Mtx.ReleaseMutex();
+    }
+
+}
+
+class DecThread
+{
+    int num;
+    public Thread Thrd;
+
+    public DecThread(string name, int n)
+    {
+        this.Thrd = new Thread(this.Run);
+        this.Thrd.Name = name;
+        this.num = n;
+        this.Thrd.Start();
+    }
+
+    public void Run()
+    {
+        Console.WriteLine(this.Thrd.Name + " Wait Mutex...");
+
+        // Получить Мьютекс
+        //SharedRes.Mtx.WaitOne();
+
+        Console.WriteLine(this.Thrd.Name + " Get Mutex");
+
+        do
+        {
+            Thread.Sleep(500);
+            SharedRes.Count--;
+            Console.WriteLine(
+                "In Thread " + this.Thrd.Name
+                + ", SharedRes.Count = " + SharedRes.Count
+                );
+            num--;
+
+        } while (num > 0);
+
+        Console.WriteLine(this.Thrd.Name + " Free Mutex");
+
+        // Освободить Мьютекс
+        //SharedRes.Mtx.ReleaseMutex();
+    }
+
+}
+
+// Этот класс разрешает выполнение только двух своих 
+// экземпляров
+class SemaphoreThread
+{
+    public Thread Thrd;
+
+    // Здесь создается семафор дающий
+    // дающий два разрешения из двух первоначально имеющихся
+    static Semaphore sem = new Semaphore(2, 2);
+
+    public SemaphoreThread(string name)
+    {
+        this.Thrd = new Thread(this.Run);
+        this.Thrd.Name = name;
+        this.Thrd.Start();
+    }
+
+    void Run()
+    {
+        Console.WriteLine(this.Thrd.Name + " wait permittion...");
+        SemaphoreThread.sem.WaitOne();
+
+        Console.WriteLine(this.Thrd.Name + " get permittion");
+
+        for(char ch = 'A'; ch < 'D'; ch++)
+        {
+            Console.WriteLine(this.Thrd.Name + " : " + ch);
+        }
+
+        // Освободить семафор
+        SemaphoreThread.sem.Release();
+    }
+}
+
+class EventThread
+{
+    public Thread Thrd;
+    ManualResetEvent mre;
+
+    public EventThread(string name, ManualResetEvent evt)
+    {
+        this.Thrd = new Thread(this.Run);
+        this.Thrd.Name = name;
+        this.mre = evt;
+        this.Thrd.Start();
+    }
+
+    void Run()
+    {
+        Console.WriteLine("Inside of " + this.Thrd.Name);
+
+        for(int i = 0; i < 5; i++)
+        {
+            Console.WriteLine(this.Thrd.Name);
+            Thread.Sleep(500);
+        }
+
+        Console.WriteLine(this.Thrd.Name + " finished!!!");
+
+        // Уведомить о событии
+        this.mre.Set();
+    }
+}
+
+class AbortThread
+{
+    public Thread Thrd;
+
+    public AbortThread(string name) {
+        this.Thrd = new Thread(this.Run);
+        this.Thrd.Name = name;
+        this.Thrd.Start();
+    }
+
+    void Run()
+    {
+        try
+        {
+            Console.WriteLine(this.Thrd + " started");
+
+            for (int i = 1; i <= 1000; i++)
+            {
+                Console.Write(i + " ");
+                if (i % 10 == 0)
+                {
+                    Console.WriteLine();
+                    Thread.Sleep(250);
+                }
+
+
+            }
+
+            Console.WriteLine(this.Thrd.Name + " finished.");
+        }catch (ThreadAbortException exc){
+            Console.WriteLine("Thread had been interrupted. Error code " + exc.ExceptionState);
+        }
+    }
+}
 
 namespace MultithreadTest
-{
-
-
+{ 
     class Program
     {
         public static void MyThreadTest(MyThread myThread)
@@ -418,6 +647,69 @@ namespace MultithreadTest
             Console.WriteLine("Clock is Finished");
         }
 
+        public static void MutexTest()
+        {
+            // Сконструировать два потока
+            IncThread mt1 = new IncThread("IncThread", 5);
+
+            // Разрешить инкрементируемому потоку начаться
+            Thread.Sleep(1);
+
+            DecThread mt2 = new DecThread("DecThread", 5);
+
+            mt1.Thrd.Join();
+            mt2.Thrd.Join();
+        }
+
+        public static void SemaphoreTest()
+        {
+            SemaphoreThread mt1 = new SemaphoreThread("Thread #1");
+            SemaphoreThread mt2 = new SemaphoreThread("Thread #2");
+            SemaphoreThread mt3 = new SemaphoreThread("Thread #3");
+
+            mt1.Thrd.Join();
+            mt2.Thrd.Join();
+            mt3.Thrd.Join();
+        }
+
+        public static void ManualEventTest()
+        {
+            ManualResetEvent evtObj = new ManualResetEvent(false);
+            EventThread mt1 = new EventThread("EventThread #1", evtObj);
+            Console.WriteLine("Main thread waiting for event");
+
+            // Ожидать уведомление о событии
+            evtObj.WaitOne();
+
+            Console.WriteLine("Main thread get signal from " + mt1.Thrd.Name);
+
+            // Установить событийный объект в исходное состояние
+            evtObj.Reset();
+
+            mt1 = new EventThread("EventThread #2", evtObj);
+
+            // Ожидать уведомление о событии.
+            evtObj.WaitOne();
+            
+
+            Console.WriteLine("Main thread get signal from " + mt1.Thrd.Name);
+        }
+
+        static void AbortTest()
+        {
+            AbortThread mt1 = new AbortThread("Abort Thred #1");
+
+            //  Разрешить порожденному потоку начать свое выполнение
+            Thread.Sleep(500);
+
+            Console.WriteLine("Thread Interruption");
+            mt1.Thrd.Abort(100);
+
+            mt1.Thrd.Join(); // Ожидать прерывание потока
+
+            Console.WriteLine("Main Thread Interrupted");
+        }
+
         static void Main(string[] args)
         {
             //MyThreadImprovedTest(new MyThread("Test_Thread"));
@@ -426,7 +718,11 @@ namespace MultithreadTest
             //MoreThreadsArgTest();
             //MyThreadsPriorityTest();
             //MyThreadsLockTest();
-            TickingClockTest();
+            //TickingClockTest();
+            //MutexTest();
+            //SemaphoreTest();
+            //ManualEventTest();
+            AbortTest();
         }
     }
 }
